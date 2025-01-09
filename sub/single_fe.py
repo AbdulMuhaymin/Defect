@@ -4,6 +4,7 @@ from periodictable import formula
 def main():
     st.title("Defect Formation Energy Diagram")
 
+    st.subheader("User input:")
     # Input: Label for the diagram
     outfile_label = st.text_input("Enter a label for your diagram", value="Defect Formation Energy diagram")
 
@@ -58,7 +59,7 @@ def main():
         host_energy_input = st.text_input("Enter the host supercell energy:", value="", placeholder="Enter value")
     with col2:
         # Unit selector for energy (eV or Ry)
-        energy_unit = st.selectbox("Unit:", ["eV", "Ry"], index=0)
+        energy_unit = st.selectbox("Unit:", ["Ry", "eV"], index=0)
     # Convert to float and append if valid
     if host_energy_input:
         try:
@@ -66,17 +67,62 @@ def main():
         except ValueError:
             st.warning("Invalid value for host supercell energy. Please enter a valid number.")
 
-    # Charge range input
-    col1, col2 = st.columns([3, 3])  # Adjust proportions as needed
-    with col1:
-        min_charge = st.text_input("Min charge:", value=-1)
-    with col2:
-        max_charge = st.text_input("Max charge:", value=1)
+    # Create charge range input fields
+    col_min, col_max = st.columns(2)
+    with col_min:
+        min_charge = st.text_input("Min charge:", value="-1", placeholder="Enter min charge")
+    with col_max:
+        max_charge = st.text_input("Max charge:", value="1", placeholder="Enter max charge")
 
+    # Ensure min_charge and max_charge are valid integers
+    if min_charge.isdigit() or (min_charge.startswith("-") and min_charge[1:].isdigit()):
+        min_charge = int(min_charge)
+    else:
+        st.error("Please enter a valid integer for Min charge")
+
+    if max_charge.isdigit() or (max_charge.startswith("-") and max_charge[1:].isdigit()):
+        max_charge = int(max_charge)
+    else:
+        st.error("Please enter a valid integer for Max charge")
+
+    if isinstance(min_charge, int) and isinstance(max_charge, int):
+        # Validate that min_charge is less than or equal to max_charge
+        if min_charge <= max_charge:
+            # Create a dictionary to store energy values and units for each charge
+            charge_energy_data = {}
+            for charge in range(min_charge, max_charge + 1):
+                col_energy, col_unit = st.columns([3, 1])  # Adjust column proportions if needed
+                with col_energy:
+                    energy = st.text_input(
+                        f"Energy for charge {charge}:",
+                        key=f"energy_{charge}",
+                        placeholder="Enter energy value"
+                    )
+                with col_unit:
+                    unit = st.selectbox(
+                        f"Unit for charge {charge}:",
+                        ["Ry", "eV"],
+                        key=f"unit_{charge}"
+                    )
+
+                # Store the input data in the dictionary
+                charge_energy_data[charge] = {"energy": energy, "unit": unit}
+
+            # Display the collected data (optional for debugging)
+            #st.write("Collected charge-energy data:", charge_energy_data)
+        else:
+            st.error("Min charge must be less than or equal to Max charge")
+
+    # Create band gap and vbm input fields
+    col_min, col_max = st.columns(2)
+    with col_min:
+        min_charge = st.text_input("Band gap (eV):", value="3.00", placeholder="Band gap of the host material in eV")
+    with col_max:
+        max_charge = st.text_input("Host VBM (eV)", value="2.4", placeholder="Valence Band Maximum of the pristine host in eV")
 
 
     # Choose an independent variable for the slider (Chemical potential of one species)
-    st.subheader("Choose independent variable for slider:")
+    st.subheader("Thermodynamic stability analysis:")
     if chemical_potentials:
         chosen_species = st.selectbox("Select species to vary chemical potential:", species)
         slider_min = min(chemical_potentials)
@@ -93,7 +139,7 @@ def main():
 
 
     # Plot the defect formation energy
-    st.subheader("Defect Formation Energy Diagram")
+    st.subheader("Formation energy diagram:")
     if host_energy and defect_energy:
         # Here, you can compute the defect formation energy based on the inputs.
         defect_formation_energy = defect_energy - host_energy  # Example formula
