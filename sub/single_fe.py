@@ -1,5 +1,7 @@
 import streamlit as st
 from periodictable import formula
+import matplotlib.pyplot as plt
+import numpy as np
 
 def main():
     st.title("Defect Formation Energy Diagram")
@@ -9,20 +11,21 @@ def main():
     outfile_label = st.text_input("Enter a label for your diagram", value="Defect Formation Energy diagram")
 
     # Input: Host chemical formula
-    species = []
+    host_species = []
     host_formula = st.text_input("Enter the host chemical formula (e.g., ZnS)", value="ZnS")
     if host_formula:
         parsed_host = formula(host_formula).atoms
         #st.write("Host chemical formula parsed:")
         for element, count in parsed_host.items():
             #st.write(f"Element: {element}, Count: {count}")
-            species.append(str(element))
+            host_species.append(str(element))
 
     # Input: Defect species (impurity and vacancy)
     #st.subheader("Defect Species")
     impurity_defect = st.text_input("Enter the impurity defect species (e.g., Cu), leave empty if none", value="Cu")
     vacancy_defect = st.text_input("Enter the vacancy defect species (e.g., S), leave empty if none", value="S")
 
+    species = host_species.copy()
  # List of species: Combine host and defect species
     if str(impurity_defect) and str(impurity_defect) not in species:
         species.append(impurity_defect)
@@ -30,8 +33,8 @@ def main():
         species.append(str(vacancy_defect))
 
     # Automatically generate chemical potential input fields based on the species list
-    chemical_potentials = []
-    units = []
+    chemical_potentials = {}
+    units = {}
 
     for sp in species:
         # Create two columns for the value input and unit selector
@@ -47,8 +50,8 @@ def main():
         if chem_potential_input:  # Only append if the user has entered a value
             try:
                 # Convert the input value to a float
-                chemical_potentials.append(float(chem_potential_input))
-                units.append(unit_input)
+                chemical_potentials[str(sp)] = float(chem_potential_input)
+                units[str(sp)] = unit_input
             except ValueError:
                 st.warning(f"Invalid value for chemical potential of {sp}. Please enter a valid number.")
 
@@ -91,7 +94,7 @@ def main():
             # Create a dictionary to store energy values and units for each charge
             charge_energy_data = {}
             for charge in range(min_charge, max_charge + 1):
-                col_energy, col_unit = st.columns([3, 1])  # Adjust column proportions if needed
+                col_energy, col_unit = st.columns([3, 1])  
                 with col_energy:
                     energy = st.text_input(
                         f"Energy for charge {charge}:",
@@ -112,43 +115,119 @@ def main():
             #st.write("Collected charge-energy data:", charge_energy_data)
         else:
             st.error("Min charge must be less than or equal to Max charge")
-
+    
     # Create band gap and vbm input fields
-    col_min, col_max = st.columns(2)
+    col_min, col_max, atom_num = st.columns(3)
     with col_min:
         min_charge = st.text_input("Band gap (eV):", value="3.00", placeholder="Band gap of the host material in eV")
     with col_max:
         max_charge = st.text_input("Host VBM (eV)", value="2.4", placeholder="Valence Band Maximum of the pristine host in eV")
+    with atom_num:
+        atom_number = st.text_input("# of atoms", value="64", placeholder="Number of atoms in the host supercell")
+
+    # Thermodynamic stability analysis
+    st.subheader("Thermodynamic Stability Analysis")
+    Delta_H_f = (
+        host_energy * 13.6057039763 / (int(atom_number) / len(host_species))
+        - chemical_potentials[species[0]]
+        - chemical_potentials[species[1]] )
+    st.write(f"The heat of formation is: **{Delta_H_f:.4f}** eV.")
+
+    # Calculate formation energy for the range of chemical potentials
+    def dfe_q0(mu):
+        dfe = (float(charge_energy_data[0]["energy"]) * 13.6057039763
+        - host_energy * 13.6057039763
+        - (-1*chemical_potentials[vacancy_defect] - mu)
+        - chemical_potentials[impurity_defect] )
+        return dfe
+
+    mu_v_range = np.linspace(Delta_H_f, 0, 100)
+    E_formation = dfe_q0(mu_v_range)
+
+    # Plot the graph
+    fig, ax = plt.subplots()
+    ax.plot(mu_v_range, E_formation, color="red", label = None)
+    ax.set_xlabel(f"$\\Delta \,\\mu_{{{vacancy_defect}}} = \\mu_{{{vacancy_defect}}} - \\mu_{{{vacancy_defect}}}^{{0}} $ (eV)", fontsize = 15)
+    ax.set_xlim(Delta_H_f,0)
+    ax.set_ylabel(f"$E_f$ (eV)", fontsize = 14)
+    ax.set_title("Thermodynamic Stability Analysis", fontsize = 14)
+    ax.grid(False)
+
+        # Add vertical text on the left y-axis (inside the image)
+    ax.text(
+        x=Delta_H_f + 0.1,  
+        y=(max(E_formation) + min(E_formation)) / 2, 
+        s=f"Zn-poor or S-rich environment",  
+        rotation=90,  
+        va="center",  
+        ha="center", 
+        fontsize=12,
+        color="black",
+        bbox=dict(facecolor="r", edgecolor="none", alpha=0.3)
+    )
+    ax.text(
+        x= 0 - 0.1,  
+        y=(max(E_formation) + min(E_formation)) / 2, 
+        s=f"Zn-rich or S-poor environment",  
+        rotation=90,  
+        va="center",  
+        ha="center", 
+        fontsize=12,
+        color="black",
+        bbox=dict(facecolor="g", edgecolor="none", alpha=0.3)
+    )
+    # Display the plot
+    st.pyplot(fig)
 
 
-    # Choose an independent variable for the slider (Chemical potential of one species)
-    st.subheader("Thermodynamic stability analysis:")
-    if chemical_potentials:
-        chosen_species = st.selectbox("Select species to vary chemical potential:", species)
-        slider_min = min(chemical_potentials)
-        slider_max = max(chemical_potentials)
-        chemical_potential_slider = st.slider(
-            f"Adjust chemical potential for {chosen_species}",
-            min_value=float(slider_min),
-            max_value=float(slider_max),
-            value=float(chemical_potentials[species.index(chosen_species)]),
-            step=0.01
-        )
+    def dfe_q(mu, charge):
+        dfe = (float(charge_energy_data[charge]["energy"]) * 13.6057039763
+            - host_energy * 13.6057039763
+            + (chemical_potentials[vacancy_defect] - mu)
+            - chemical_potentials[impurity_defect])
+        return dfe
 
-        st.write(f"Current adjusted chemical potential for {chosen_species}: {chemical_potential_slider} {units[species.index(chosen_species)]}")
+    # Create slider for chemical potential of Zn
+    mu_slider = st.slider(
+        label="Delta chemical potential of Zn",
+        min_value=Delta_H_f,
+        max_value=0.0,
+        value=Delta_H_f,
+        step=0.01,
+    )
+
+    # List of charges to plot (you can modify this based on the charges you want to calculate)
+    charges = [0, 1, -1, 2, -2]
+
+    # Calculate formation energies for each charge and plot them
+    mu_v_range = np.linspace(Delta_H_f, 0, 100)
+    fig, ax = plt.subplots()
+
+    for charge in charges:
+        E_formation = [dfe_q(mu, charge) for mu in mu_v_range]
+        ax.plot(mu_v_range, E_formation, label=f"Charge {charge}")
+
+    # Customize plot
+    ax.set_xlabel(f"$\\Delta \,\\mu_{{{vacancy_defect}}}$ (eV)", fontsize=15)
+    ax.set_xlim(Delta_H_f, 0)
+    ax.set_ylabel(f"$E_f$ (eV)", fontsize=14)
+    ax.set_title("Charged Defect Formation Energy Diagram", fontsize=14)
+    ax.grid(True)
+
+    # Display the plot with Streamlit
+    st.pyplot(fig)
 
 
-    # Plot the defect formation energy
-    st.subheader("Formation energy diagram:")
-    if host_energy and defect_energy:
-        # Here, you can compute the defect formation energy based on the inputs.
-        defect_formation_energy = defect_energy - host_energy  # Example formula
 
-        st.write(f"Defect Formation Energy: {defect_formation_energy} eV")
 
-        # Here you can plot the defect formation energy, and make it interactive as a function of the chemical potential.
-        # Example plot (you can integrate a more complex plot using Matplotlib or Plotly):
-        st.line_chart([defect_formation_energy for _ in range(10)])
+
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     main()

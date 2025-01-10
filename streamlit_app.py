@@ -16,6 +16,18 @@ def main():
         ("Analyze your defect calculation results", "analysis")
     ]
 
+    st.markdown(
+    """
+    <style>
+    /* Set the base font size for the entire app */
+    html, body, [class*="css"]  {
+        font-size: 18px; /* Adjust this value as needed */
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
     page = st.radio("Choose a task:", options=[opt[0] for opt in options])
     page = next(opt[1] for opt in options if opt[0] == page)
 
