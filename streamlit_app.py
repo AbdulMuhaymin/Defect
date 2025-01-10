@@ -3,6 +3,7 @@ import streamlit as st
 import sub.single_fe as fe
 import sub.multiple_fe as mfe
 import sub.siesta_input as siesta_in
+import sub.qe_input as qe_in
 import sub.analysis as analysis
 
 def main():
@@ -12,6 +13,7 @@ def main():
     options = [
         ("Plot defect formation energy (FE) diagram for a single defect", "fe"),
         ("Plot defect FE diagram for multiple defects ", "mfe"),
+        ("Generate an input file for defect calculation in Quantum ESPRESSO ", "qe_in"),
         ("Generate an input file for defect calculation in SIESTA", "siesta_in"),
         ("Analyze your defect calculation results", "analysis")
     ]
@@ -35,6 +37,8 @@ def main():
         fe.main()
     elif page == "mfe":
         mfe.main()
+    elif page == "qe_in":
+        qe_in.main()
     elif page == "siesta_in":
         siesta_in.main()
     elif page == "analysis":
