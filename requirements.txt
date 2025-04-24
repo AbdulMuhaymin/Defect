@@ -3,3 +3,4 @@ periodictable
 matplotlib
 numpy
 plotly
+pandas
