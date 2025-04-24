@@ -1,6 +1,7 @@
 import streamlit as st
+import numpy as np
 import pandas as pd
-import plotly.express as px
+import plotly.graph_objects as go
 
 # Title of the app
 st.title('DFT Results Analyzer')
@@ -16,7 +17,7 @@ with col1:
     uploaded_file = st.file_uploader("Upload DOS file", type=['csv', 'txt', 'dat'])
 
     # Slider for moving average window
-    window_size = st.slider("Moving Average Window", min_value=1, max_value=20, value=1, step=1)
+    window_size = st.slider("Moving Average Window", min_value=1, max_value=20, value=6, step=1)
 
     # Button to plot DOS
     plot_button = st.button("Plot DOS")
@@ -25,20 +26,29 @@ with col1:
 with col2:
     st.header("Output")
 
-    # Check if file is uploaded and button clicked
     if uploaded_file is not None and plot_button:
-        # Assume uploaded file is two-column data: energy and dos
-        dos_df = pd.read_csv(uploaded_file, sep='\\s+', header=None, names=['Energy', 'DOS'])
+        data = np.loadtxt(uploaded_file, skiprows=1)
 
-        # Apply moving average
-        dos_df['Smoothed DOS'] = dos_df['DOS'].rolling(window=window_size, center=True).mean()
+        energy = data[:, 0]
+        dos_up = data[:, 1]
+        dos_down = data[:, 2]
 
-        # Plot using plotly
-        fig = px.line(dos_df, x='Energy', y='Smoothed DOS',
-                      title='Density of States (DOS)',
-                      labels={'Energy': 'Energy (eV)', 'Smoothed DOS': 'DOS (states/eV)'})
+        fermi_energy = 9.844  # replace this with dynamic value extraction if needed
+        
+        mov_avg_up = np.convolve(dos_up, np.ones(window_size)/window_size, mode='valid')
+        mov_avg_down = -1 * np.convolve(dos_down, np.ones(window_size)/window_size, mode='valid')
+        
+        energy_adjusted = energy[int(window_size/2)-1:int(-1*window_size/2)] - fermi_energy
 
-        # Display interactive plot
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=energy_adjusted, y=mov_avg_up, mode='lines', name='Up Spin', line=dict(color='green')))
+        fig.add_trace(go.Scatter(x=energy_adjusted, y=mov_avg_down, mode='lines', name='Down Spin', line=dict(color='red')))
+
+        fig.update_layout(title="Density of States (DOS)",
+                          xaxis_title="Energy (eV)",
+                          yaxis_title="DOS (states/eV)",
+                          legend=dict(font=dict(size=12)))
+
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Please upload a DOS file and click 'Plot DOS' to visualize results.")
