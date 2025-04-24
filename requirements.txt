@@ -2,3 +2,4 @@ streamlit
 periodictable
 matplotlib
 numpy
+plotly
