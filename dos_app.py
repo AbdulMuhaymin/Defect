@@ -17,7 +17,8 @@ with col1:
     uploaded_file = st.file_uploader("Upload DOS file", type=['csv', 'txt', 'dat'])
 
     # Slider for moving average window
-    window_size = st.slider("Moving Average Window", min_value=1, max_value=20, value=6, step=1)
+    window_size = st.slider("Moving Average Window", min_value=1, max_value=100, value=10, step=1)
+    xlim_values = st.slider('Select a range of values', -100, 100.0, (-50.0, 50.0))
 
     # Button to plot DOS
     plot_button = st.button("Plot DOS")
@@ -47,6 +48,7 @@ with col2:
         fig.update_layout(title="Density of States (DOS)",
                           xaxis_title="Energy (eV)",
                           yaxis_title="DOS (states/eV)",
+                          range_x = xlim_values,
                           legend=dict(font=dict(size=12)))
 
         st.plotly_chart(fig, use_container_width=True)
