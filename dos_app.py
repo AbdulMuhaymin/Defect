@@ -18,7 +18,7 @@ with col1:
 
     # Slider for moving average window
     window_size = st.slider("Moving Average Window", min_value=1, max_value=100, value=10, step=1)
-    xlim_values = st.slider('Select a range of values', -100, 100.0, (-50.0, 50.0))
+    xlim_values = st.slider('Select a range of values', (-100, 100.0))
 
     # Button to plot DOS
     plot_button = st.button("Plot DOS")
